@@ -7,6 +7,7 @@ from mutagen.easyid3 import EasyID3
 import pygame  # For audio playback
 import PIL.Image
 import PIL.ImageTk
+import io
 
 
 class MP3PlayerApp(tk.Tk):
@@ -14,10 +15,19 @@ class MP3PlayerApp(tk.Tk):
         super().__init__()
         self.title("Modern MP3 Player")
         self.geometry("800x600")
-        self.configure(bg="#f0f0f0")  # Light, modern background color
+        self.configure(bg="#f0f0f0")
 
         # Initialize audio system
         pygame.mixer.init()
+
+        # Set up style
+        style = ttk.Style(self)
+        style.configure("TFrame", background="#f0f0f0")
+        style.configure("TLabel", background="#f0f0f0", font=("Arial", 10))
+        style.configure("TButton", padding=5, font=("Arial", 10))
+        style.configure("Album.TLabel", font=("Arial", 12, "bold"))
+        style.configure("Ribbon.TFrame", background="#333333")
+        style.configure("Ribbon.TButton", background="#555555", foreground="#ffffff")
 
         # Default values
         self.album_directory = ""
@@ -32,11 +42,11 @@ class MP3PlayerApp(tk.Tk):
         self.setup_bottom_controls()
 
     def setup_ribbon(self):
-        ribbon = tk.Frame(self, bg="#333", height=30)
+        ribbon = ttk.Frame(self, style="Ribbon.TFrame", height=30)
         ribbon.pack(side="top", fill="x")
 
         # Preferences Button
-        preferences_btn = tk.Button(ribbon, text="Preferences", command=self.open_preferences, bg="#555", fg="#fff")
+        preferences_btn = ttk.Button(ribbon, text="Preferences", command=self.open_preferences, style="Ribbon.TButton")
         preferences_btn.pack(side="right", padx=10)
 
     def open_preferences(self):
@@ -47,52 +57,59 @@ class MP3PlayerApp(tk.Tk):
     def load_albums(self):
         self.album_listbox.delete(0, tk.END)
         self.albums = [d for d in os.listdir(self.album_directory) if os.path.isdir(os.path.join(self.album_directory, d))]
+        if not self.albums:
+            messagebox.showinfo("No Albums Found", "No albums found in the selected directory.")
         for album in self.albums:
             self.album_listbox.insert(tk.END, album)
 
     def setup_left_pane(self):
-        left_frame = tk.Frame(self, width=200, bg="#e6e6e6")
+        left_frame = ttk.Frame(self, width=200, padding=(10, 10))
         left_frame.pack(side="left", fill="y")
-        album_label = tk.Label(left_frame, text="Albums", font=("Arial", 14))
-        album_label.pack(pady=10)
+        left_frame.pack_propagate(False)
+        
+        album_label = ttk.Label(left_frame, text="Albums", style="Album.TLabel")
+        album_label.pack(pady=(0, 10))
 
         # Listbox for album list
-        self.album_listbox = tk.Listbox(left_frame)
-        self.album_listbox.pack(fill="both", expand=True)
+        self.album_listbox = tk.Listbox(left_frame, font=("Arial", 10))
+        self.album_listbox.pack(fill="both", expand=True, padx=5, pady=5)
         self.album_listbox.bind("<<ListboxSelect>>", self.display_album_details)
 
     def setup_right_pane(self):
-        right_frame = tk.Frame(self, bg="#f0f0f0")
+        right_frame = ttk.Frame(self, padding=(10, 10))
         right_frame.pack(side="right", fill="both", expand=True)
 
         # Album Artwork
-        self.artwork_label = tk.Label(right_frame, text="Artwork", bg="#d9d9d9", width=20, height=10)
-        self.artwork_label.grid(row=0, column=0, padx=10, pady=10)
+        self.artwork_label = ttk.Label(right_frame, text="Artwork", style="TLabel", width=20)
+        self.artwork_label.grid(row=0, column=0, padx=10, pady=10, sticky="n")
 
         # Album Information
-        info_frame = tk.Frame(right_frame, bg="#f0f0f0")
+        info_frame = ttk.Frame(right_frame)
         info_frame.grid(row=0, column=1, sticky="n")
-        self.album_info_label = tk.Label(info_frame, text="Album Info", font=("Arial", 12), bg="#f0f0f0")
+        self.album_info_label = ttk.Label(info_frame, text="Album Info", style="Album.TLabel")
         self.album_info_label.pack()
 
         # Track List
-        self.track_listbox = tk.Listbox(right_frame)
+        self.track_listbox = tk.Listbox(right_frame, font=("Arial", 10))
         self.track_listbox.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=10, pady=10)
 
     def setup_bottom_controls(self):
-        controls_frame = tk.Frame(self, bg="#333")
+        controls_frame = ttk.Frame(self, padding=(10, 5))
         controls_frame.pack(side="bottom", fill="x")
 
-        play_btn = tk.Button(controls_frame, text="Play", command=self.play_track, bg="#555", fg="#fff")
-        pause_btn = tk.Button(controls_frame, text="Pause", command=self.pause_track, bg="#555", fg="#fff")
-        next_btn = tk.Button(controls_frame, text="Next", command=self.next_track, bg="#555", fg="#fff")
-        prev_btn = tk.Button(controls_frame, text="Previous", command=self.prev_track, bg="#555", fg="#fff")
+        # Control buttons
+        btn_style = {"bg": "#555", "fg": "#fff", "font": ("Arial", 10)}
+        play_btn = ttk.Button(controls_frame, text="Play", command=self.play_track)
+        pause_btn = ttk.Button(controls_frame, text="Pause", command=self.pause_track)
+        stop_btn = ttk.Button(controls_frame, text="Stop", command=self.stop_track)
+        next_btn = ttk.Button(controls_frame, text="Next", command=self.next_track)
+        prev_btn = ttk.Button(controls_frame, text="Previous", command=self.prev_track)
 
-        for btn in [prev_btn, play_btn, pause_btn, next_btn]:
+        for btn in [prev_btn, play_btn, pause_btn, stop_btn, next_btn]:
             btn.pack(side="left", padx=5, pady=5)
 
         # Timer
-        self.timer_label = tk.Label(controls_frame, text="00:00 / 00:00", bg="#333", fg="#fff")
+        self.timer_label = ttk.Label(controls_frame, text="00:00 / 00:00", font=("Arial", 10))
         self.timer_label.pack(side="right", padx=10)
 
     def verify_album_files(self, album_path):
@@ -148,17 +165,26 @@ class MP3PlayerApp(tk.Tk):
         return None
 
     def play_track(self):
-        track_path = self.get_selected_track_path()
-        if track_path:
-            pygame.mixer.music.load(track_path)
-            pygame.mixer.music.play()
-            self.current_track_index = self.track_listbox.curselection()[0]
-            self.update_timer()
+        try:
+            track_path = self.get_selected_track_path()
+            if track_path:
+                pygame.mixer.music.load(track_path)
+                pygame.mixer.music.play()
+                self.current_track_index = self.track_listbox.curselection()[0]
+                self.update_timer()
+                pygame.mixer.music.set_endevent(pygame.USEREVENT)
+                self.bind("<<pygame.USEREVENT>>", self.next_track)
+        except pygame.error as e:
+            messagebox.showerror("Playback Error", f"Failed to play track: {e}")
 
     def pause_track(self):
         pygame.mixer.music.pause()
 
-    def next_track(self):
+    def stop_track(self):
+        pygame.mixer.music.stop()
+        self.timer_label.config(text="00:00 / 00:00")
+
+    def next_track(self, event=None):
         if self.current_track_index < len(self.tracks) - 1:
             self.current_track_index += 1
             self.track_listbox.selection_clear(0, tk.END)
