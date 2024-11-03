@@ -1,3 +1,6 @@
+import ttkbootstrap as ttk
+from ttkbootstrap.constants import *
+from ttkbootstrap import Window
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from tkinter import ttk  # For modern widgets
@@ -10,24 +13,14 @@ import PIL.ImageTk
 import io
 
 
-class MP3PlayerApp(tk.Tk):
+class MP3PlayerApp(Window):  # Use Window from ttkbootstrap here
     def __init__(self):
-        super().__init__()
+        super().__init__(themename="darkly")  # You can change the theme here
         self.title("Modern MP3 Player")
         self.geometry("800x600")
-        self.configure(bg="#f0f0f0")
 
         # Initialize audio system
         pygame.mixer.init()
-
-        # Set up style
-        style = ttk.Style(self)
-        style.configure("TFrame", background="#f0f0f0")
-        style.configure("TLabel", background="#f0f0f0", font=("Arial", 10))
-        style.configure("TButton", padding=5, font=("Arial", 10))
-        style.configure("Album.TLabel", font=("Arial", 12, "bold"))
-        style.configure("Ribbon.TFrame", background="#333333")
-        style.configure("Ribbon.TButton", background="#555555", foreground="#ffffff")
 
         # Default values
         self.album_directory = ""
@@ -35,18 +28,37 @@ class MP3PlayerApp(tk.Tk):
         self.tracks = []
         self.current_track_index = -1
 
-        # Set up frames
+        # Set up frames and load UI
         self.setup_ribbon()
         self.setup_left_pane()
         self.setup_right_pane()
         self.setup_bottom_controls()
+
+    def display_album_details(self, event):
+        selected_album = self.album_listbox.get(self.album_listbox.curselection())
+        album_path = os.path.join(self.album_directory, selected_album)
+
+        if self.verify_album_files(album_path):
+            # Load album artwork, info, and tracks
+            self.track_listbox.delete(0, tk.END)
+            self.album_info_label.config(text=f"Album: {selected_album}")
+
+            # Display tracks
+            for track in self.tracks:
+                track_info = MP3(track, ID3=EasyID3)
+                self.track_listbox.insert(tk.END, track_info['title'][0])  # Display track title
+            
+            # Load artwork if available
+            self.load_album_artwork(album_path)
 
     def setup_ribbon(self):
         ribbon = ttk.Frame(self, style="Ribbon.TFrame", height=30)
         ribbon.pack(side="top", fill="x")
 
         # Preferences Button
-        preferences_btn = ttk.Button(ribbon, text="Preferences", command=self.open_preferences, style="Ribbon.TButton")
+        preferences_btn = ttk.Button(
+            ribbon, text="Preferences", command=self.open_preferences, style="Ribbon.TButton"
+        )
         preferences_btn.pack(side="right", padx=10)
 
     def open_preferences(self):
@@ -56,7 +68,10 @@ class MP3PlayerApp(tk.Tk):
 
     def load_albums(self):
         self.album_listbox.delete(0, tk.END)
-        self.albums = [d for d in os.listdir(self.album_directory) if os.path.isdir(os.path.join(self.album_directory, d))]
+        # Get album directories and sort them alphabetically
+        self.albums = sorted(
+            [d for d in os.listdir(self.album_directory) if os.path.isdir(os.path.join(self.album_directory, d))]
+        )
         if not self.albums:
             messagebox.showinfo("No Albums Found", "No albums found in the selected directory.")
         for album in self.albums:
@@ -98,12 +113,11 @@ class MP3PlayerApp(tk.Tk):
         controls_frame.pack(side="bottom", fill="x")
 
         # Control buttons
-        btn_style = {"bg": "#555", "fg": "#fff", "font": ("Arial", 10)}
-        play_btn = ttk.Button(controls_frame, text="Play", command=self.play_track)
-        pause_btn = ttk.Button(controls_frame, text="Pause", command=self.pause_track)
-        stop_btn = ttk.Button(controls_frame, text="Stop", command=self.stop_track)
-        next_btn = ttk.Button(controls_frame, text="Next", command=self.next_track)
-        prev_btn = ttk.Button(controls_frame, text="Previous", command=self.prev_track)
+        play_btn = ttk.Button(controls_frame, text="\u23F5", command=self.play_track)
+        pause_btn = ttk.Button(controls_frame, text="\u23F8", command=self.pause_track)
+        stop_btn = ttk.Button(controls_frame, text="\u23F9", command=self.stop_track)
+        next_btn = ttk.Button(controls_frame, text="\u23ED", command=self.next_track)
+        prev_btn = ttk.Button(controls_frame, text="\u23EE", command=self.prev_track)
 
         for btn in [prev_btn, play_btn, pause_btn, stop_btn, next_btn]:
             btn.pack(side="left", padx=5, pady=5)
@@ -128,25 +142,7 @@ class MP3PlayerApp(tk.Tk):
                     self.tracks.append(os.path.join(root, file))  # Add valid tracks to the list
         return True
 
-    def display_album_details(self, event):
-        selected_album = self.album_listbox.get(self.album_listbox.curselection())
-        album_path = os.path.join(self.album_directory, selected_album)
-
-        if self.verify_album_files(album_path):
-            # Load album artwork, info, and tracks
-            self.track_listbox.delete(0, tk.END)
-            self.album_info_label.config(text=f"Album: {selected_album}")
-
-            # Display tracks
-            for track in self.tracks:
-                track_info = MP3(track, ID3=EasyID3)
-                self.track_listbox.insert(tk.END, track_info['title'][0])  # Display track title
-            
-            # Load artwork if available
-            self.load_album_artwork(album_path)
-
     def load_album_artwork(self, album_path):
-        # Find the first mp3 file and load its artwork
         for track in self.tracks:
             audio = MP3(track, ID3=EasyID3)
             if 'APIC:' in audio:
